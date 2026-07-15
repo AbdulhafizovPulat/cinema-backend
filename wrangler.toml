@@ -1,0 +1,11 @@
+name = "cinema-backend"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = [ "nodejs_compat" ]
+
+
+[[d1_databases]]
+binding = "cinema_db"
+database_name = "cinema-db"
+database_id = "43d371fa-93a9-464d-94b0-20c9b715299e"
+migrations_dir = "drizzle/migrations"
