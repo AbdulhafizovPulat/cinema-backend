@@ -230,8 +230,8 @@ router.post('/subscribe', authenticateToken, async (req: AuthRequest, res: Respo
       .all();
       
     const currentActiveSub = activeSubs
-      .filter(sub => sub.expiresAt > now.toISOString())
-      .sort((a, b) => b.expiresAt.localeCompare(a.expiresAt))[0];
+      .filter((sub: any) => sub.expiresAt > now.toISOString())
+      .sort((a: any, b: any) => b.expiresAt.localeCompare(a.expiresAt))[0];
 
     let startDate = now;
     if (currentActiveSub) {

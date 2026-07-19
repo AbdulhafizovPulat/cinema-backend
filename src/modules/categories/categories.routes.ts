@@ -17,7 +17,7 @@ const router = Router();
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    
+
     // Валидируем pageSize: строго 10, 20, 50. Иначе сбрасываем на 10.
     const rawPageSize = parseInt(req.query.pageSize as string);
     const pageSize = [10, 20, 50].includes(rawPageSize) ? rawPageSize : 10;

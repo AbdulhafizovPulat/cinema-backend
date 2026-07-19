@@ -1,6 +1,6 @@
 name = "cinema-backend"
 main = "src/index.ts"
-compatibility_date = "2024-09-23"
+compatibility_date = "2025-09-01"
 compatibility_flags = [ "nodejs_compat" ]
 
 
@@ -9,3 +9,7 @@ binding = "cinema_db"
 database_name = "cinema-db"
 database_id = "43d371fa-93a9-464d-94b0-20c9b715299e"
 migrations_dir = "drizzle/migrations"
+
+[vars]
+TELEGRAM_BOT_TOKEN = "8849740092:AAEiJXYIphg1ktv836rOzZL5vB5Ow6POQSI"
+TELEGRAM_CHAT_ID = "5242572871"

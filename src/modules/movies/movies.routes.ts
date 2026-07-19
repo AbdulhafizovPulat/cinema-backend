@@ -32,7 +32,7 @@ async function checkStreamAccess(userId: number, role: string, movie: any): Prom
     .from(userSubscriptions)
     .where(eq(userSubscriptions.userId, userId))
     .all();
-  return activeSubs.some(sub => sub.expiresAt > now);
+  return activeSubs.some((sub: any) => sub.expiresAt > now);
 }
 
 /**
@@ -131,7 +131,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
     const totalPages = Math.ceil(totalItems / pageSize);
 
     // Распарсим JSON-строку тегов для каждого фильма в нормальный массив
-    const formattedMovies = moviesList.map(movie => {
+    const formattedMovies = moviesList.map((movie: any) => {
       let parsedTags = [];
       try {
         parsedTags = JSON.parse(movie.tags || '[]');

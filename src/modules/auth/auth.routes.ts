@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
+import { TelegramLoggerService } from '../logger/telegram-logger.service.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me-in-production';
@@ -24,6 +25,17 @@ router.post('/register', async (req, res): Promise<any> => {
       return res.status(400).json({ error: 'Имя, Фамилия и номер телефона обязательны' });
     }
 
+    // Валидация формата email для предотвращения инъекций и некорректных типов данных
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Некорректный формат email.' });
+    }
+
+    // Защита от коротких паролей (базовая устойчивость к брутфорсу)
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Пароль должен содержать не менее 8 символов.' });
+    }
+
     // Проверяем, существует ли уже пользователь с таким email
     const existingUser = await db.select().from(users).where(eq(users.email, email)).get();
     if (existingUser) {
@@ -34,8 +46,19 @@ router.post('/register', async (req, res): Promise<any> => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Устанавливаем роль (client по умолчанию)
-    const userRole = role === 'admin' ? 'admin' : 'client';
+    // Безопасная инициализация роли: предотвращение Privilege Escalation.
+    // Обычная регистрация позволяет создавать только аккаунты с ролью client.
+    // Регистрация роли admin допустима только с правильным ключом ADMIN_REGISTRATION_SECRET.
+    const adminSecret = process.env.ADMIN_REGISTRATION_SECRET || (globalThis as any).ADMIN_REGISTRATION_SECRET;
+    let userRole: 'client' | 'admin' = 'client';
+    if (role === 'admin') {
+      const { adminSecretKey } = req.body;
+      if (adminSecret && adminSecretKey === adminSecret) {
+        userRole = 'admin';
+      } else {
+        return res.status(403).json({ error: 'Недостаточно прав для регистрации администратора.' });
+      }
+    }
 
     // Сохраняем пользователя в базу данных
     const result = await db.insert(users).values({
@@ -83,12 +106,14 @@ router.post('/login', async (req, res): Promise<any> => {
     // Ищем пользователя в БД
     const user = await db.select().from(users).where(eq(users.email, email)).get();
     if (!user) {
+      await TelegramLoggerService.log(`⚠️ [AUTH] Неудачная попытка входа: ${email} (Причина: неверный пароль)`);
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
 
     // Сверяем хэши паролей
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+      await TelegramLoggerService.log(`⚠️ [AUTH] Неудачная попытка входа: ${email} (Причина: неверный пароль)`);
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
 
@@ -98,6 +123,8 @@ router.post('/login', async (req, res): Promise<any> => {
       JWT_SECRET,
       { expiresIn: '24h' } // Срок действия токена
     );
+
+    await TelegramLoggerService.log(`🔑 [AUTH] Успешный вход пользователя: ${user.email} (Роль: ${user.role})`);
 
     return res.json({
       message: 'Авторизация успешна',

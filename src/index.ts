@@ -1,10 +1,5 @@
 import express from 'express';
-import cors from 'cors';
-import { createServer } from 'node:http';
 import dotenv from 'dotenv';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { migrate } from 'drizzle-orm/libsql/migrator';
 
 // Импорт БД и схемы
 import { db } from './db/index.js';
@@ -15,6 +10,8 @@ import moviesRoutes from './modules/movies/movies.routes.js';
 import purchasesRoutes from './modules/purchases/purchases.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
+import { TelegramLoggerService } from './modules/logger/telegram-logger.service.js';
+import { rateLimiter } from './middleware/rate-limiter.js';
 
 // Импорт конфигурации Swagger
 import { swaggerSpec } from './swagger.js';
@@ -22,21 +19,64 @@ import { swaggerSpec } from './swagger.js';
 // Загрузка переменных окружения
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware глобального уровня
-app.use(cors()); // Разрешает кросс-доменные запросы (CORS)
-app.use(express.json()); // Автоматически парсит входящий JSON в req.body
-
 const isCF = typeof globalThis !== 'undefined' && (
   'WebSocketPair' in globalThis || 
   'cinema_db' in globalThis || 
   (globalThis as any).MINIFLARE === true
 );
 
+// Патч Express для Cloudflare Workers: перенаправляем прототипы на нативные Node.js классы
+if (isCF) {
+  try {
+    const httpModuleName = 'node:http';
+    const nativeHttp = await import(httpModuleName);
+    Object.setPrototypeOf(express.request, nativeHttp.IncomingMessage.prototype);
+    Object.setPrototypeOf(express.response, nativeHttp.ServerResponse.prototype);
+    console.log("► Express.request и Express.response успешно пропатчены прототипами node:http");
+  } catch (err) {
+    console.error("► Ошибка при патчинге прототипов Express:", err);
+  }
+}
+
+const app = express();
+app.disable('x-powered-by'); // Отключаем заголовок X-Powered-By для усложнения распознавания стека технологий (Fingerprinting)
+const PORT = process.env.PORT || 3000;
+
+// Middleware глобального уровня (CORS и заголовки кибербезопасности)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Базовые заголовки информационной безопасности (OWASP/Helmet эквиваленты)
+  res.setHeader('X-Content-Type-Options', 'nosniff'); // Защита от MIME-sniffing
+  res.setHeader('X-Frame-Options', 'DENY'); // Защита от кликджекинга (Clickjacking)
+  res.setHeader('X-XSS-Protection', '1; mode=block'); // Защита от XSS-атак в старых браузерах
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin'); // Контролирует передачу Referer
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://api.telegram.org;"); // CSP политика для безопасной отрисовки Swagger и API
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload'); // Принудительный HTTPS (HSTS)
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+  next();
+});
+app.use(express.json()); // Автоматически парсит входящий JSON в req.body
+
+// Защита от спама, циклов (loop) и DDoS: 120 запросов в минуту на один IP адрес
+app.use(rateLimiter({
+  windowMs: 60 * 1000, // 1 минута
+  max: 120             // максимум 120 запросов в минуту
+}));
+
 // Автоматический запуск миграций базы данных при запуске приложения (только локально)
 if (!isCF) {
+  const { fileURLToPath } = await import('node:url');
+  const path = await import('node:path');
+  const { migrate } = await import('drizzle-orm/libsql/migrator');
+
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
 
@@ -117,18 +157,41 @@ app.get('/', (req, res) => {
   });
 });
 
-const server = createServer(app);
+// Глобальный обработчик ошибок (Exception Filter)
+app.use((err: any, req: any, res: any, next: any) => {
+  const errorMsg = `🚨 [ERROR] Критическая ошибка на сервере!
+Маршрут: ${req.method} ${req.originalUrl || req.url}
+Ошибка: ${err.message || err}
 
-// В Cloudflare Workers порт выступает как ключ маршрутизации для обработчика.
-server.listen(PORT, () => {
-  if (!isCF) {
-    console.log(`Сервер запущен и слушает порт ${PORT}`);
-  }
+Стек:
+${err.stack || 'Нет стека'}`;
+
+  TelegramLoggerService.log(errorMsg).catch((e: any) => {
+    console.error("► Ошибка отправки лога в Telegram:", e);
+  });
+
+  console.error("► Критическая ошибка:", err);
+  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
+
+// Запускаем HTTP-сервер для обработки запросов
+try {
+  const httpModuleName = 'node:http';
+  const { createServer } = await import(httpModuleName);
+  const server = createServer(app);
+  server.listen(PORT, () => {
+    if (!isCF) {
+      console.log(`Сервер запущен и слушает порт ${PORT}`);
+    }
+  });
+} catch (error) {
+  console.warn("Предупреждение при инициализации HTTP-сервера (нормально для валидации Wrangler):", error);
+}
 
 let exportHandler: any = null;
 
 if (isCF) {
+  // @ts-ignore
   const { httpServerHandler } = await import('cloudflare:node');
   exportHandler = httpServerHandler({ port: Number(PORT) });
 }
