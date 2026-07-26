@@ -52,9 +52,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
     // Возвращаем в требуемом формате пагинации
     return res.json({
       items: list,
-      currentPage: page,
-      isEmpty,
-      resultsPerPage: pageSize,
+      page,
+      pageSize,
       totalPages,
       totalResults
     });

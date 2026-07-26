@@ -160,9 +160,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
 
     return res.json({
       items: formattedMovies,
-      currentPage: page,
-      isEmpty,
-      resultsPerPage: pageSize,
+      page,
+      pageSize,
       totalPages,
       totalResults: totalItems
     });

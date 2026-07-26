@@ -264,9 +264,8 @@ const options: swaggerJSDoc.Options = {
                     type: 'object',
                     properties: {
                       items: { type: 'array', items: { $ref: '#/components/schemas/User' } },
-                      currentPage: { type: 'integer', example: 1 },
-                      isEmpty: { type: 'boolean', example: false },
-                      resultsPerPage: { type: 'integer', example: 10 },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
                       totalPages: { type: 'integer', example: 5 },
                       totalResults: { type: 'integer', example: 48 },
                     },
@@ -360,9 +359,8 @@ const options: swaggerJSDoc.Options = {
                     type: 'object',
                     properties: {
                       items: { type: 'array', items: { $ref: '#/components/schemas/Category' } },
-                      currentPage: { type: 'integer', example: 1 },
-                      isEmpty: { type: 'boolean', example: false },
-                      resultsPerPage: { type: 'integer', example: 10 },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
                       totalPages: { type: 'integer', example: 3 },
                       totalResults: { type: 'integer', example: 25 },
                     },
@@ -448,7 +446,7 @@ const options: swaggerJSDoc.Options = {
             { name: 'author', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по автору / режиссеру' },
             { name: 'tag', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по тегу / жанру' },
             { name: 'categoryId', in: 'query', required: false, schema: { type: 'integer' }, description: 'Фильтр по ID категории' },
-            { name: 'isPremium', in: 'query', required: false, schema: { type: 'string', enum: ['true', 'false'] }, description: 'Фильтр премиум-статуса' },
+            { name: 'isPremium', in: 'query', required: false, schema: { type: 'boolean' }, description: 'Фильтр премиум-статуса' },
             { name: 'sortBy', in: 'query', required: false, schema: { type: 'string', enum: ['rating', 'createdAt'] }, description: 'Сортировать по рейтингу ("rating") или дате добавления ("createdAt")' },
             { name: 'sortOrder', in: 'query', required: false, schema: { type: 'string', enum: ['asc', 'desc'], default: 'desc' }, description: 'Направление сортировки' },
           ],
@@ -460,16 +458,11 @@ const options: swaggerJSDoc.Options = {
                   schema: {
                     type: 'object',
                     properties: {
-                      pagination: {
-                        type: 'object',
-                        properties: {
-                          page: { type: 'integer' },
-                          pageSize: { type: 'integer' },
-                          totalItems: { type: 'integer' },
-                          totalPages: { type: 'integer' },
-                        },
-                      },
-                      movies: {
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
+                      totalPages: { type: 'integer', example: 2 },
+                      totalResults: { type: 'integer', example: 15 },
+                      items: {
                         type: 'array',
                         items: {
                           allOf: [
@@ -842,9 +835,8 @@ const options: swaggerJSDoc.Options = {
                           },
                         },
                       },
-                      currentPage: { type: 'integer', example: 1 },
-                      isEmpty: { type: 'boolean', example: false },
-                      resultsPerPage: { type: 'integer', example: 10 },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
                       totalPages: { type: 'integer', example: 2 },
                       totalResults: { type: 'integer', example: 15 },
                     },
@@ -889,9 +881,8 @@ const options: swaggerJSDoc.Options = {
                           },
                         },
                       },
-                      currentPage: { type: 'integer', example: 1 },
-                      isEmpty: { type: 'boolean', example: false },
-                      resultsPerPage: { type: 'integer', example: 10 },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
                       totalPages: { type: 'integer', example: 1 },
                       totalResults: { type: 'integer', example: 3 },
                     },

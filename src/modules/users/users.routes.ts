@@ -166,9 +166,8 @@ router.get('/', authenticateToken, requireRole('admin'), async (req: AuthRequest
 
     return res.json({
       items: list,
-      currentPage: page,
-      isEmpty,
-      resultsPerPage: pageSize,
+      page,
+      pageSize,
       totalPages,
       totalResults
     });

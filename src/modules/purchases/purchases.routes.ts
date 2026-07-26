@@ -335,9 +335,8 @@ router.get('/history', authenticateToken, async (req: AuthRequest, res: Response
 
     return res.json({
       items: list,
-      currentPage: page,
-      isEmpty,
-      resultsPerPage: pageSize,
+      page,
+      pageSize,
       totalPages,
       totalResults
     });
@@ -415,9 +414,8 @@ router.get('/subscriptions', authenticateToken, async (req: AuthRequest, res: Re
 
     return res.json({
       items: list,
-      currentPage: page,
-      isEmpty,
-      resultsPerPage: pageSize,
+      page,
+      pageSize,
       totalPages,
       totalResults
     });
