@@ -44,7 +44,7 @@ async function checkStreamAccess(userId: number, role: string, movie: any): Prom
  * - title: фильтр по названию (частичное совпадение)
  * - author: фильтр по режиссеру / автору (частичное совпадение)
  * - tag: фильтр по одному из тегов
- * - categoryId: ID категории (опционально)
+ * - categoryName: фильтр по названию категории (частичное совпадение)
  * - isPremium: true/false для разделения бесплатного и премиум каталога
  * - sortBy: поле для сортировки (например, "rating" для сортировки по оценкам, "createdAt" для новинок)
  * - sortOrder: направление сортировки ("asc" или "desc", по умолчанию "desc")
@@ -62,7 +62,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
     const titleFilter = req.query.title as string;
     const authorFilter = req.query.author as string;
     const tagFilter = req.query.tag as string;
-    const categoryIdFilter = parseInt(req.query.categoryId as string);
+    const categoryNameFilter = req.query.categoryName as string;
     const isPremiumFilter = req.query.isPremium as string;
     const sortBy = req.query.sortBy as string; // 'rating' или 'createdAt'
     const sortOrder = req.query.sortOrder as string || 'desc';
@@ -75,8 +75,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
     if (authorFilter) {
       conditions.push(like(movies.author, `%${authorFilter}%`));
     }
-    if (!isNaN(categoryIdFilter)) {
-      conditions.push(eq(movies.categoryId, categoryIdFilter));
+    if (categoryNameFilter) {
+      conditions.push(like(categories.name, `%${categoryNameFilter}%`));
     }
     if (tagFilter) {
       // Ищем тег внутри JSON-массива (формат: '["Action", "Sci-Fi"]')

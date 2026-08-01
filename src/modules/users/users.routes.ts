@@ -178,6 +178,57 @@ router.get('/', authenticateToken, requireRole('admin'), async (req: AuthRequest
 });
 
 /**
+ * POST /api/users
+ * Создание нового пользователя (Админ только).
+ */
+router.post('/', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const { email, password, firstName, lastName, phoneNumber, cardNumber, role } = req.body;
+
+    if (!email || !password || !firstName || !lastName || !phoneNumber) {
+      return res.status(400).json({ error: 'Заполните все обязательные поля (email, пароль, имя, фамилия, телефон)' });
+    }
+
+    const existingUser = await db.select().from(users).where(eq(users.email, email)).get();
+    if (existingUser) {
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    const userRole = (role === 'admin') ? 'admin' : 'client';
+
+    const result = await db.insert(users).values({
+      email,
+      passwordHash,
+      role: userRole,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phoneNumber: phoneNumber.trim(),
+      cardNumber: cardNumber ? cardNumber.trim() : null
+    }).returning({
+      id: users.id,
+      email: users.email,
+      role: users.role,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      phoneNumber: users.phoneNumber,
+      cardNumber: users.cardNumber,
+      createdAt: users.createdAt
+    });
+
+    return res.status(201).json({
+      message: 'Пользователь успешно создан',
+      user: result[0]
+    });
+  } catch (error) {
+    console.error('Ошибка создания пользователя:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
  * PUT /api/users/:id
  * Редактирование любого пользователя (Админ только, например для изменения роли).
  */

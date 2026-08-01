@@ -13,6 +13,10 @@ const options: swaggerJSDoc.Options = {
     },
     servers: [
       {
+        url: 'https://cinema-backend.cinema-abdulhafizov.workers.dev',
+        description: 'Продакшен сервер (Cloudflare Workers)',
+      },
+      {
         url: 'http://localhost:3000',
         description: 'Локальный сервер разработки',
       },
@@ -276,6 +280,49 @@ const options: swaggerJSDoc.Options = {
             403: { description: 'Доступ запрещен (не админ)' },
           },
         },
+        post: {
+          summary: 'Создать нового пользователя (Доступно только Admin)',
+          tags: ['Users & Profile (Пользователи и Профиль)'],
+          security: [{ BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['email', 'password', 'firstName', 'lastName', 'phoneNumber'],
+                  properties: {
+                    email: { type: 'string', example: 'newuser@example.com' },
+                    password: { type: 'string', example: 'password123' },
+                    firstName: { type: 'string', example: 'Иван' },
+                    lastName: { type: 'string', example: 'Иванов' },
+                    phoneNumber: { type: 'string', example: '+79998887766' },
+                    cardNumber: { type: 'string', example: '4276123456789012' },
+                    role: { type: 'string', enum: ['client', 'admin'], example: 'client' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Пользователь успешно создан',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Пользователь успешно создан' },
+                      user: { $ref: '#/components/schemas/User' },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Неверные данные или email уже занят' },
+            403: { description: 'Доступ запрещен (не админ)' },
+          },
+        },
       },
       '/api/users/{id}': {
         get: {
@@ -445,7 +492,7 @@ const options: swaggerJSDoc.Options = {
             { name: 'title', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по названию фильма (частичный)' },
             { name: 'author', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по автору / режиссеру' },
             { name: 'tag', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по тегу / жанру' },
-            { name: 'categoryId', in: 'query', required: false, schema: { type: 'integer' }, description: 'Фильтр по ID категории' },
+            { name: 'categoryName', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по названию категории (частичный)' },
             { name: 'isPremium', in: 'query', required: false, schema: { type: 'boolean' }, description: 'Фильтр премиум-статуса' },
             { name: 'sortBy', in: 'query', required: false, schema: { type: 'string', enum: ['rating', 'createdAt'] }, description: 'Сортировать по рейтингу ("rating") или дате добавления ("createdAt")' },
             { name: 'sortOrder', in: 'query', required: false, schema: { type: 'string', enum: ['asc', 'desc'], default: 'desc' }, description: 'Направление сортировки' },
