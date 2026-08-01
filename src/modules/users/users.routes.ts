@@ -24,9 +24,9 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
       cardNumber: users.cardNumber,
       createdAt: users.createdAt
     })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .get();
+      .from(users)
+      .where(eq(users.id, user.id))
+      .get();
 
     if (!profile) {
       return res.status(404).json({ error: 'Профиль не найден' });
@@ -148,11 +148,11 @@ router.get('/', authenticateToken, requireRole('admin'), async (req: AuthRequest
       cardNumber: users.cardNumber,
       createdAt: users.createdAt
     })
-    .from(users)
-    .where(whereClause)
-    .limit(pageSize)
-    .offset(offset)
-    .all();
+      .from(users)
+      .where(whereClause)
+      .limit(pageSize)
+      .offset(offset)
+      .all();
 
     // Получаем общее количество записей для пагинации
     const totalCountResult = await db.select({ count: sql<number>`COUNT(*)` })
@@ -258,10 +258,10 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
       updateData.role = role;
     }
 
-    if (password && password.trim() !== '') {
-      const salt = await bcrypt.genSalt(10);
-      updateData.passwordHash = await bcrypt.hash(password, salt);
-    }
+    // if (password && password.trim() !== '') {
+    //   const salt = await bcrypt.genSalt(10);
+    //   updateData.passwordHash = await bcrypt.hash(password, salt);
+    // }
 
     const updated = await db.update(users)
       .set(updateData)
@@ -338,9 +338,9 @@ router.get('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
       cardNumber: users.cardNumber,
       createdAt: users.createdAt
     })
-    .from(users)
-    .where(eq(users.id, userId))
-    .get();
+      .from(users)
+      .where(eq(users.id, userId))
+      .get();
 
     if (!profile) {
       return res.status(404).json({ error: 'Пользователь не найден' });
