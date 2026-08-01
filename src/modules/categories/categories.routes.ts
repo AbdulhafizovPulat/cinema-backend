@@ -49,9 +49,22 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
     const totalPages = Math.ceil(totalResults / pageSize);
     const isEmpty = list.length === 0;
 
+    const formattedList = list.map((cat: any) => {
+      let parsedLocales = [];
+      try {
+        parsedLocales = JSON.parse(cat.locales || '[]');
+      } catch (e) {
+        parsedLocales = [];
+      }
+      return {
+        ...cat,
+        locales: parsedLocales,
+      };
+    });
+
     // Возвращаем в требуемом формате пагинации
     return res.json({
-      items: list,
+      items: formattedList,
       page,
       pageSize,
       totalPages,
@@ -69,7 +82,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
  */
 router.post('/', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const { name } = req.body;
+    const { name, locales } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Название категории обязательно' });
@@ -81,13 +94,19 @@ router.post('/', authenticateToken, requireRole('admin'), async (req: AuthReques
       return res.status(400).json({ error: 'Категория с таким именем уже существует' });
     }
 
+    const serializedLocales = Array.isArray(locales) ? JSON.stringify(locales) : '[]';
+
     const result = await db.insert(categories).values({
       name: name.trim(),
+      locales: serializedLocales,
     }).returning();
 
     return res.status(201).json({
       message: 'Категория успешно создана',
-      category: result[0],
+      category: {
+        ...result[0],
+        locales: Array.isArray(locales) ? locales : []
+      },
     });
   } catch (error) {
     console.error('Ошибка создания категории:', error);
@@ -106,7 +125,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
       return res.status(400).json({ error: 'Неверный ID категории' });
     }
 
-    const { name } = req.body;
+    const { name, locales } = req.body;
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Название категории обязательно для обновления' });
     }
@@ -123,14 +142,27 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
       return res.status(400).json({ error: 'Другая категория уже имеет это имя' });
     }
 
+    const serializedLocales = Array.isArray(locales) ? JSON.stringify(locales) : existingCategory.locales;
+
     const updated = await db.update(categories)
-      .set({ name: name.trim() })
+      .set({ 
+        name: name.trim(),
+        locales: serializedLocales
+      })
       .where(eq(categories.id, categoryId))
       .returning();
 
+    let finalLocales = [];
+    try {
+      finalLocales = JSON.parse(updated[0].locales || '[]');
+    } catch (e) { }
+
     return res.json({
       message: 'Категория успешно обновлена',
-      category: updated[0],
+      category: {
+        ...updated[0],
+        locales: finalLocales
+      },
     });
   } catch (error) {
     console.error('Ошибка при обновлении категории:', error);

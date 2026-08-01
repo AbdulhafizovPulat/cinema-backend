@@ -24,6 +24,7 @@ export const users = sqliteTable('users', {
 export const categories = sqliteTable('categories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').unique().notNull(), // Например: "Фильмы", "Сериалы", "Аниме", "Ужасы"
+  locales: text('locales').default('[]').notNull(), // JSON массив локализаций
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 

@@ -70,6 +70,18 @@ const options: swaggerJSDoc.Options = {
           properties: {
             id: { type: 'integer', example: 1 },
             name: { type: 'string', example: 'Сериалы' },
+            locales: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  localeKey: { type: 'string', example: 'en' },
+                  title: { type: 'string', example: 'Series' },
+                  description: { type: 'string', example: 'TV Series' }
+                }
+              },
+              example: [{ localeKey: 'en', title: 'Series', description: 'TV Series' }]
+            },
             createdAt: { type: 'string', format: 'date-time' },
           },
         },
@@ -430,6 +442,17 @@ const options: swaggerJSDoc.Options = {
                   required: ['name'],
                   properties: {
                     name: { type: 'string', example: 'Сериалы' },
+                    locales: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          localeKey: { type: 'string' },
+                          title: { type: 'string' },
+                          description: { type: 'string' }
+                        }
+                      }
+                    }
                   },
                 },
               },
@@ -458,6 +481,17 @@ const options: swaggerJSDoc.Options = {
                   required: ['name'],
                   properties: {
                     name: { type: 'string', example: 'Комедии' },
+                    locales: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          localeKey: { type: 'string' },
+                          title: { type: 'string' },
+                          description: { type: 'string' }
+                        }
+                      }
+                    }
                   },
                 },
               },
