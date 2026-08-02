@@ -113,3 +113,52 @@ export const purchases = sqliteTable('purchases', {
   status: text('status', { enum: ['pending', 'completed'] }).default('completed').notNull(), // Статус оплаты
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
+
+/**
+ * Таблица Избранного (Favorites)
+ * Хранит список избранных фильмов для каждого пользователя.
+ */
+export const favorites = sqliteTable('favorites', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  movieId: integer('movie_id')
+    .references(() => movies.id, { onDelete: 'cascade' })
+    .notNull(),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+/**
+ * Таблица Коллекций / Подборок фильмов (Collections / Selections)
+ * Использование: "Топ фильмы", "Золотая классика", "Новинки недели" для главной страницы.
+ * Настраивается из административной панели.
+ */
+export const collections = sqliteTable('collections', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  slug: text('slug').unique().notNull(),
+  description: text('description').default('').notNull(),
+  locales: text('locales').default('[]').notNull(),
+  order: integer('order').default(0).notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true).notNull(),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+/**
+ * Таблица Связи Коллекций и Фильмов (Collection Movies)
+ * Определяет, какие фильмы входят в ту или иную подборку и в каком порядке.
+ */
+export const collectionMovies = sqliteTable('collection_movies', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  collectionId: integer('collection_id')
+    .references(() => collections.id, { onDelete: 'cascade' })
+    .notNull(),
+  movieId: integer('movie_id')
+    .references(() => movies.id, { onDelete: 'cascade' })
+    .notNull(),
+  order: integer('order').default(0).notNull(),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+

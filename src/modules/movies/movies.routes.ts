@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { eq, and, like, sql, desc, asc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { movies, purchases, userSubscriptions, ratings, users, categories } from '../../db/schema.js';
+import { movies, purchases, userSubscriptions, ratings, users, categories, favorites } from '../../db/schema.js';
 import { authenticateToken, requireRole, AuthRequest } from '../auth/auth.middleware.js';
 
 const router = Router();
@@ -233,6 +233,13 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): P
     .where(eq(ratings.movieId, movieId))
     .all();
 
+    // Проверяем, находится ли фильм в избранном у пользователя
+    const favoriteRecord = await db.select()
+      .from(favorites)
+      .where(and(eq(favorites.userId, user.id), eq(favorites.movieId, movieId)))
+      .get();
+    const isFavorite = !!favoriteRecord;
+
     // Проверяем, есть ли у текущего пользователя доступ к просмотру
     const hasAccess = await checkStreamAccess(user.id, user.role, movieData);
 
@@ -257,6 +264,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): P
         author: movieData.author,
         tags: parsedTags,
         category: categoryObj,
+        isFavorite,
         createdAt: movieData.createdAt,
       },
       ratings: {

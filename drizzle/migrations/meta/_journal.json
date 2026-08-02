@@ -15,6 +15,20 @@
       "when": 1785594227445,
       "tag": "0001_cheerful_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1785694927294,
+      "tag": "0002_strange_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1785695188527,
+      "tag": "0003_goofy_maginty",
+      "breakpoints": true
     }
   ]
 }

@@ -106,6 +106,58 @@ const options: swaggerJSDoc.Options = {
             createdAt: { type: 'string', format: 'date-time' },
           },
         },
+        FavoriteItem: {
+          type: 'object',
+          properties: {
+            favoriteId: { type: 'integer', example: 1 },
+            favoritedAt: { type: 'string', format: 'date-time' },
+            id: { type: 'integer', example: 5 },
+            title: { type: 'string', example: 'Интерстеллар' },
+            description: { type: 'string', example: 'Фильм про космос.' },
+            posterUrl: { type: 'string', nullable: true, example: 'https://example.com/poster.jpg' },
+            videoUrl: { type: 'string', example: 'https://example.com/video.mp4' },
+            isPremium: { type: 'boolean', example: true },
+            author: { type: 'string', example: 'Кристофер Нолан' },
+            tags: { type: 'array', items: { type: 'string' }, example: ['драма', 'фантастика'] },
+            category: {
+              type: 'object',
+              nullable: true,
+              properties: {
+                id: { type: 'integer', example: 1 },
+                name: { type: 'string', example: 'Фильмы' },
+              },
+            },
+            averageRating: { type: 'number', example: 9.2 },
+            ratingCount: { type: 'integer', example: 45 },
+            isFavorite: { type: 'boolean', example: true },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        Collection: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            title: { type: 'string', example: 'Топ фильмы' },
+            slug: { type: 'string', example: 'top-movies' },
+            description: { type: 'string', example: 'Самые популярные и высокооцененные фильмы' },
+            locales: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  localeKey: { type: 'string', example: 'en' },
+                  title: { type: 'string', example: 'Top Movies' },
+                  description: { type: 'string', example: 'Most popular movies' }
+                }
+              }
+            },
+            order: { type: 'integer', example: 1 },
+            isActive: { type: 'boolean', example: true },
+            movies: { type: 'array', items: { $ref: '#/components/schemas/Movie' } },
+            movieCount: { type: 'integer', example: 5 },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
       },
     },
     paths: {
@@ -210,6 +262,18 @@ const options: swaggerJSDoc.Options = {
           responses: {
             200: { description: 'Пароль успешно изменен' },
             400: { description: 'Токен недействителен, изменен или истек' },
+          },
+        },
+      },
+      '/api/auth/verify-admin': {
+        get: {
+          summary: 'Проверка прав доступа администратора для админ-панели',
+          tags: ['Auth (Авторизация)'],
+          security: [{ BearerAuth: [] }],
+          responses: {
+            200: { description: 'Доступ разрешен (пользователь имеет роль admin)' },
+            401: { description: 'Пользователь не авторизован' },
+            403: { description: 'Доступ запрещен (роль пользователя client, не админ)' },
           },
         },
       },
@@ -1157,6 +1221,310 @@ const options: swaggerJSDoc.Options = {
             },
             404: { description: 'Файл не найден' },
             500: { description: 'Ошибка сервера при получении' },
+          },
+        },
+      },
+      '/api/favorites': {
+        get: {
+          summary: 'Получить список избранных фильмов текущего пользователя с пагинацией',
+          tags: ['Favorites (Избранное)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 }, description: 'Номер страницы' },
+            { name: 'pageSize', in: 'query', required: false, schema: { type: 'integer', enum: [10, 20, 50], default: 10 }, description: 'Количество фильмов на страницу' },
+          ],
+          responses: {
+            200: {
+              description: 'Список избранных фильмов',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      items: { type: 'array', items: { $ref: '#/components/schemas/FavoriteItem' } },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
+                      totalPages: { type: 'integer', example: 1 },
+                      totalResults: { type: 'integer', example: 5 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          summary: 'Добавить фильм в избранное',
+          tags: ['Favorites (Избранное)'],
+          security: [{ BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['movieId'],
+                  properties: {
+                    movieId: { type: 'integer', example: 1, description: 'ID добавляемого фильма' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Фильм успешно добавлен в избранное' },
+            200: { description: 'Фильм уже находится в избранном' },
+            400: { description: 'Невалидные входные данные' },
+            404: { description: 'Фильм не найден' },
+          },
+        },
+      },
+      '/api/favorites/check/{movieId}': {
+        get: {
+          summary: 'Проверить, находится ли фильм в избранном у текущего пользователя',
+          tags: ['Favorites (Избранное)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'movieId', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            200: {
+              description: 'Статус нахождения в избранном',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      isFavorite: { type: 'boolean', example: true },
+                      favoriteId: { type: 'integer', nullable: true, example: 1 },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Неверный ID фильма' },
+          },
+        },
+      },
+      '/api/favorites/{movieId}': {
+        delete: {
+          summary: 'Удалить фильм из избранного',
+          tags: ['Favorites (Избранное)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'movieId', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            200: { description: 'Фильм успешно удален из избранного' },
+            400: { description: 'Неверный ID фильма' },
+            404: { description: 'Фильм не найден в списке избранного' },
+          },
+        },
+      },
+      '/api/collections': {
+        get: {
+          summary: 'Получить подборки фильмов для главной страницы клиента',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', default: 1 }, description: 'Номер страницы' },
+            { name: 'pageSize', in: 'query', required: false, schema: { type: 'integer', enum: [10, 20, 50], default: 10 }, description: 'Количество подборок на страницу' },
+            { name: 'slug', in: 'query', required: false, schema: { type: 'string' }, description: 'Фильтр по уникальному слагу (например "top-movies")' },
+          ],
+          responses: {
+            200: {
+              description: 'Список подборок с входящими в них фильмами',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      items: { type: 'array', items: { $ref: '#/components/schemas/Collection' } },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
+                      totalPages: { type: 'integer', example: 1 },
+                      totalResults: { type: 'integer', example: 2 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          summary: 'Создать новую подборку фильмов (Доступно только Admin)',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          security: [{ BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['title'],
+                  properties: {
+                    title: { type: 'string', example: 'Топ фильмы' },
+                    slug: { type: 'string', example: 'top-movies' },
+                    description: { type: 'string', example: 'Самые популярные и высокооцененные фильмы' },
+                    locales: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          localeKey: { type: 'string' },
+                          title: { type: 'string' },
+                          description: { type: 'string' }
+                        }
+                      }
+                    },
+                    order: { type: 'integer', example: 1 },
+                    isActive: { type: 'boolean', example: true },
+                    movieIds: { type: 'array', items: { type: 'integer' }, example: [1, 2, 5] },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Подборка фильмов успешно создана' },
+            400: { description: 'Невалидные данные или слаг уже занят' },
+            403: { description: 'Доступ запрещен (не админ)' },
+          },
+        },
+      },
+      '/api/collections/slug/{slug}': {
+        get: {
+          summary: 'Получить отдельную подборку фильмов по ее слагу (например "top-movies" или "golden-classics")',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          parameters: [
+            { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: {
+              description: 'Данные подборки и привязанные фильмы',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Collection' },
+                },
+              },
+            },
+            404: { description: 'Подборка не найдена' },
+          },
+        },
+      },
+      '/api/collections/admin/all': {
+        get: {
+          summary: 'Получить полный список подборок (включая неактивные) для админ-панели',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          security: [{ BearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Полный список подборок',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      items: { type: 'array', items: { $ref: '#/components/schemas/Collection' } },
+                      total: { type: 'integer', example: 2 },
+                    },
+                  },
+                },
+              },
+            },
+            403: { description: 'Доступ запрещен' },
+          },
+        },
+      },
+      '/api/collections/{id}': {
+        get: {
+          summary: 'Получить подборку фильмов по ID',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            200: {
+              description: 'Данные подборки',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Collection' },
+                },
+              },
+            },
+            404: { description: 'Подборка не найдена' },
+          },
+        },
+        put: {
+          summary: 'Редактировать подборку фильмов и список привязанных фильмов (Доступно только Admin)',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    slug: { type: 'string' },
+                    description: { type: 'string' },
+                    locales: { type: 'array', items: { type: 'object' } },
+                    order: { type: 'integer' },
+                    isActive: { type: 'boolean' },
+                    movieIds: { type: 'array', items: { type: 'integer' }, example: [1, 3, 4] },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Подборка успешно обновлена' },
+            404: { description: 'Подборка не найдена' },
+          },
+        },
+        delete: {
+          summary: 'Удалить подборку фильмов (Доступно только Admin)',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            200: { description: 'Подборка успешно удалена' },
+            404: { description: 'Подборка не найдена' },
+          },
+        },
+      },
+      '/api/collections/{id}/movies': {
+        post: {
+          summary: 'Добавить конкретный фильм в подборку (Доступно только Admin)',
+          tags: ['Collections (Подборки и Топ фильмов)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['movieId'],
+                  properties: {
+                    movieId: { type: 'integer', example: 1 },
+                    order: { type: 'integer', example: 0 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Фильм добавлен в подборку' },
+            200: { description: 'Фильм уже был в подборке' },
+            404: { description: 'Подборка или фильм не найдены' },
           },
         },
       },

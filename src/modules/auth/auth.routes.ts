@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
 import { TelegramLoggerService } from '../logger/telegram-logger.service.js';
+import { authenticateToken, requireRole, AuthRequest } from './auth.middleware.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me-in-production';
@@ -225,6 +226,20 @@ router.post('/reset-password', async (req, res): Promise<any> => {
     console.error('Ошибка в reset-password:', error);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
+});
+
+/**
+ * GET /api/auth/verify-admin
+ * Проверка прав доступа в административную панель.
+ * Возвращает 200 OK если пользователь авторизован и имеет роль 'admin'.
+ * Возвращает 403 Forbidden если пользователь авторизован, но его роль 'client'.
+ */
+router.get('/verify-admin', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<any> => {
+  return res.json({
+    status: 'ok',
+    message: 'Доступ разрешен',
+    user: req.user,
+  });
 });
 
 export default router;

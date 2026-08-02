@@ -10,6 +10,8 @@ import moviesRoutes from './modules/movies/movies.routes.js';
 import purchasesRoutes from './modules/purchases/purchases.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
+import favoritesRoutes from './modules/favorites/favorites.routes.js';
+import collectionsRoutes from './modules/collections/collections.routes.js';
 import { TelegramLoggerService } from './modules/logger/telegram-logger.service.js';
 import { rateLimiter } from './middleware/rate-limiter.js';
 
@@ -196,6 +198,8 @@ app.use('/api/movies', moviesRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/collections', collectionsRoutes);
 app.use('/api/upload', (await import('./modules/upload/upload.routes.js')).default);
 
 // Простейший корневой маршрут для проверки статуса сервера
