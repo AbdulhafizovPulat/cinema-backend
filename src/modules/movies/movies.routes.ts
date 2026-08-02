@@ -101,6 +101,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
       id: movies.id,
       title: movies.title,
       description: movies.description,
+      posterUrl: movies.posterUrl,
       videoUrl: movies.videoUrl,
       isPremium: movies.isPremium,
       author: movies.author,
@@ -145,6 +146,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
         id: movie.id,
         title: movie.title,
         description: movie.description,
+        posterUrl: movie.posterUrl,
         videoUrl: movie.videoUrl,
         isPremium: movie.isPremium,
         author: movie.author,
@@ -191,6 +193,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): P
       id: movies.id,
       title: movies.title,
       description: movies.description,
+      posterUrl: movies.posterUrl,
       videoUrl: movies.videoUrl,
       isPremium: movies.isPremium,
       author: movies.author,
@@ -248,6 +251,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): P
         id: movieData.id,
         title: movieData.title,
         description: movieData.description,
+        posterUrl: movieData.posterUrl,
         videoUrl: movieData.videoUrl,
         isPremium: movieData.isPremium,
         author: movieData.author,
@@ -340,7 +344,7 @@ router.post('/:id/rate', authenticateToken, async (req: AuthRequest, res: Respon
  */
 router.post('/', authenticateToken, requireRole('admin'), async (req: AuthRequest, res: Response): Promise<any> => {
   try {
-    const { title, description, videoUrl, isPremium, author, tags, categoryId } = req.body;
+    const { title, description, posterUrl, videoUrl, isPremium, author, tags, categoryId } = req.body;
 
     if (!title || !description || !videoUrl) {
       return res.status(400).json({ error: 'Поля title, description и videoUrl обязательны' });
@@ -365,6 +369,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req: AuthReques
     const result = await db.insert(movies).values({
       title,
       description,
+      posterUrl: posterUrl || null,
       videoUrl,
       isPremium: !!isPremium,
       author: author || 'Неизвестный автор',
@@ -396,7 +401,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
       return res.status(400).json({ error: 'Неверный ID фильма' });
     }
 
-    const { title, description, videoUrl, isPremium, author, tags, categoryId } = req.body;
+    const { title, description, posterUrl, videoUrl, isPremium, author, tags, categoryId } = req.body;
 
     const existingMovie = await db.select().from(movies).where(eq(movies.id, movieId)).get();
     if (!existingMovie) {
@@ -426,6 +431,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req: AuthRequ
       .set({
         title: title !== undefined ? title : existingMovie.title,
         description: description !== undefined ? description : existingMovie.description,
+        posterUrl: posterUrl !== undefined ? posterUrl : existingMovie.posterUrl,
         videoUrl: videoUrl !== undefined ? videoUrl : existingMovie.videoUrl,
         isPremium: isPremium !== undefined ? !!isPremium : existingMovie.isPremium,
         author: author !== undefined ? author : existingMovie.author,

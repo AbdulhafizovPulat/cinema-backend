@@ -41,6 +41,7 @@ export const movies = sqliteTable('movies', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),
   description: text('description').notNull(),
+  posterUrl: text('poster_url'), // Ссылка на постер / обложку фильма
   videoUrl: text('video_url').notNull(), // Ссылка на стриминг видео-файла
   isPremium: integer('is_premium', { mode: 'boolean' }).default(false).notNull(), // Требуется ли подписка/покупка
   author: text('author').default('Неизвестный автор').notNull(), // Автор / Режиссер

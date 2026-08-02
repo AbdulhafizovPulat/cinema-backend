@@ -63,6 +63,55 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Middleware для автоматической отправки всех ошибок 4xx и 5xx в Telegram бот
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  const originalSend = res.send;
+
+  res.json = function (body: any) {
+    const self = this;
+    if (res.statusCode >= 400) {
+      const errorMsg = `⚠️ [API ERROR] Произошла ошибка ${res.statusCode}
+Маршрут: ${req.method} ${req.originalUrl || req.url}
+Ответ: ${typeof body === 'object' ? JSON.stringify(body, null, 2) : body}`;
+      
+      TelegramLoggerService.log(errorMsg)
+        .catch((e) => console.error("Error logging to Telegram:", e))
+        .then(() => {
+          originalJson.call(self, body);
+        });
+      return self;
+    }
+    return originalJson.call(this, body);
+  };
+
+  res.send = function (body: any) {
+    const self = this;
+    if (res.statusCode >= 400) {
+      let bodyStr = body;
+      if (body instanceof Buffer) {
+        bodyStr = body.toString('utf8');
+      } else if (typeof body === 'object') {
+        bodyStr = JSON.stringify(body, null, 2);
+      }
+      const errorMsg = `⚠️ [API ERROR] Произошла ошибка ${res.statusCode}
+Маршрут: ${req.method} ${req.originalUrl || req.url}
+Ответ: ${bodyStr}`;
+      
+      TelegramLoggerService.log(errorMsg)
+        .catch((e) => console.error("Error logging to Telegram:", e))
+        .then(() => {
+          originalSend.call(self, body);
+        });
+      return self;
+    }
+    return originalSend.call(this, body);
+  };
+
+  next();
+});
+
 app.use(express.json()); // Автоматически парсит входящий JSON в req.body
 
 // Защита от спама, циклов (loop) и DDoS: 120 запросов в минуту на один IP адрес
@@ -147,6 +196,7 @@ app.use('/api/movies', moviesRoutes);
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/upload', (await import('./modules/upload/upload.routes.js')).default);
 
 // Простейший корневой маршрут для проверки статуса сервера
 app.get('/', (req, res) => {
@@ -159,19 +209,12 @@ app.get('/', (req, res) => {
 
 // Глобальный обработчик ошибок (Exception Filter)
 app.use((err: any, req: any, res: any, next: any) => {
-  const errorMsg = `🚨 [ERROR] Критическая ошибка на сервере!
-Маршрут: ${req.method} ${req.originalUrl || req.url}
-Ошибка: ${err.message || err}
-
-Стек:
-${err.stack || 'Нет стека'}`;
-
-  TelegramLoggerService.log(errorMsg).catch((e: any) => {
-    console.error("► Ошибка отправки лога в Telegram:", e);
-  });
-
   console.error("► Критическая ошибка:", err);
-  res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  res.status(500).json({
+    error: 'Внутренняя ошибка сервера',
+    details: err.message || String(err),
+    stack: err.stack || 'Нет стека'
+  });
 });
 
 // Запускаем HTTP-сервер для обработки запросов

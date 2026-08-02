@@ -1,13 +1,31 @@
 export class TelegramLoggerService {
-  private static getCredentials() {
-    // В Cloudflare Workers с nodejs_compat переменные могут находиться как в process.env, так и глобально
-    const token = process.env.TELEGRAM_BOT_TOKEN || (globalThis as any).TELEGRAM_BOT_TOKEN;
-    const chat = process.env.TELEGRAM_CHAT_ID || (globalThis as any).TELEGRAM_CHAT_ID;
+  private static async getCredentials() {
+    let token = process.env.TELEGRAM_BOT_TOKEN || (globalThis as any).TELEGRAM_BOT_TOKEN;
+    let chat = process.env.TELEGRAM_CHAT_ID || (globalThis as any).TELEGRAM_CHAT_ID;
+
+    const isCF = typeof globalThis !== 'undefined' && (
+      'WebSocketPair' in globalThis || 
+      'cinema_db' in globalThis || 
+      (globalThis as any).MINIFLARE === true
+    );
+
+    if (isCF && (!token || !chat)) {
+      try {
+        // @ts-ignore
+        const cfWorkers = await import('cloudflare:workers');
+        if (cfWorkers?.env) {
+          if (!token) token = cfWorkers.env.TELEGRAM_BOT_TOKEN;
+          if (!chat) chat = cfWorkers.env.TELEGRAM_CHAT_ID;
+        }
+      } catch (e) {
+        console.error("► TelegramLoggerService: Ошибка получения env из cloudflare:workers:", e);
+      }
+    }
     return { token, chat };
   }
 
   static async log(message: string): Promise<void> {
-    const { token, chat } = this.getCredentials();
+    const { token, chat } = await this.getCredentials();
     if (!token || !chat) {
       console.warn("► TelegramLoggerService: Отсутствуют учетные данные Telegram (Token или Chat ID)");
       return;

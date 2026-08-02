@@ -21,12 +21,47 @@ router.get('/subscription-types', async (req, res): Promise<any> => {
       ];
       
       const inserted = await db.insert(subscriptionTypes).values(defaultPlans).returning();
-      return res.json(inserted);
+      return res.json({
+        items: inserted,
+        page: 1,
+        pageSize: inserted.length || 10,
+        totalPages: 1,
+        totalResults: inserted.length
+      });
     }
     
-    return res.json(plans);
+    return res.json({
+      items: plans,
+      page: 1,
+      pageSize: plans.length || 10,
+      totalPages: 1,
+      totalResults: plans.length
+    });
   } catch (error) {
     console.error('Ошибка при получении типов подписок:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * GET /api/purchases/subscription-types/:id
+ * Получение конкретного тарифного плана подписки по ID.
+ */
+router.get('/subscription-types/:id', async (req, res): Promise<any> => {
+  try {
+    const planId = parseInt(req.params.id);
+    if (isNaN(planId)) {
+      return res.status(400).json({ error: 'Неверный ID тарифного плана' });
+    }
+
+    const plan = await db.select().from(subscriptionTypes).where(eq(subscriptionTypes.id, planId)).get();
+    if (!plan) {
+      return res.status(404).json({ error: 'Тарифный план не найден' });
+    }
+
+    return res.json(plan);
+  } catch (error) {
+    console.error('Ошибка при получении типа подписки:', error);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -421,6 +456,94 @@ router.get('/subscriptions', authenticateToken, async (req: AuthRequest, res: Re
     });
   } catch (error) {
     console.error('Ошибка получения списка подписок:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * GET /api/purchases/history/:id
+ * Получение конкретного платежа по ID.
+ */
+router.get('/history/:id', authenticateToken, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const purchaseId = parseInt(req.params.id);
+    if (isNaN(purchaseId)) {
+      return res.status(400).json({ error: 'Неверный ID транзакции' });
+    }
+
+    const purchase = await db.select({
+      id: purchases.id,
+      userId: purchases.userId,
+      amount: purchases.amount,
+      status: purchases.status,
+      createdAt: purchases.createdAt,
+      movieId: purchases.movieId,
+      movieTitle: movies.title,
+      subscriptionTypeId: purchases.subscriptionTypeId,
+      subscriptionName: subscriptionTypes.name,
+      userEmail: users.email
+    })
+    .from(purchases)
+    .leftJoin(movies, eq(purchases.movieId, movies.id))
+    .leftJoin(subscriptionTypes, eq(purchases.subscriptionTypeId, subscriptionTypes.id))
+    .leftJoin(users, eq(purchases.userId, users.id))
+    .where(eq(purchases.id, purchaseId))
+    .get();
+
+    if (!purchase) {
+      return res.status(404).json({ error: 'Транзакция не найдена' });
+    }
+
+    // Ограничение прав: обычные клиенты видят только свои транзакции.
+    if (req.user!.role !== 'admin' && purchase.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    return res.json(purchase);
+  } catch (error) {
+    console.error('Ошибка получения подробностей платежа:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * GET /api/purchases/subscriptions/:id
+ * Получение конкретной подписки по ID.
+ */
+router.get('/subscriptions/:id', authenticateToken, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const subId = parseInt(req.params.id);
+    if (isNaN(subId)) {
+      return res.status(400).json({ error: 'Неверный ID подписки' });
+    }
+
+    const sub = await db.select({
+      id: userSubscriptions.id,
+      userId: userSubscriptions.userId,
+      subscriptionTypeId: userSubscriptions.subscriptionTypeId,
+      subscriptionName: subscriptionTypes.name,
+      expiresAt: userSubscriptions.expiresAt,
+      createdAt: userSubscriptions.createdAt,
+      userEmail: users.email
+    })
+    .from(userSubscriptions)
+    .leftJoin(subscriptionTypes, eq(userSubscriptions.subscriptionTypeId, subscriptionTypes.id))
+    .leftJoin(users, eq(userSubscriptions.userId, users.id))
+    .where(eq(userSubscriptions.id, subId))
+    .get();
+
+    if (!sub) {
+      return res.status(404).json({ error: 'Подписка не найдена' });
+    }
+
+    // Ограничение прав: обычные клиенты видят только свои подписки.
+    if (req.user!.role !== 'admin' && sub.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    return res.json(sub);
+  } catch (error) {
+    console.error('Ошибка получения подробностей подписки:', error);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });

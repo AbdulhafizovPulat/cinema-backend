@@ -776,7 +776,19 @@ const options: swaggerJSDoc.Options = {
               description: 'Список планов подписок',
               content: {
                 'application/json': {
-                  schema: { type: 'array', items: { $ref: '#/components/schemas/SubscriptionType' } },
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      items: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/SubscriptionType' },
+                      },
+                      page: { type: 'integer', example: 1 },
+                      pageSize: { type: 'integer', example: 10 },
+                      totalPages: { type: 'integer', example: 1 },
+                      totalResults: { type: 'integer', example: 2 },
+                    },
+                  },
                 },
               },
             },
@@ -809,6 +821,24 @@ const options: swaggerJSDoc.Options = {
         },
       },
       '/api/purchases/subscription-types/{id}': {
+        get: {
+          summary: 'Получить описание конкретного тарифа подписки',
+          tags: ['Purchases & Subscriptions (Оплаты и Подписки)'],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            200: {
+              description: 'Данные тарифа подписки',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SubscriptionType' },
+                },
+              },
+            },
+            404: { description: 'Тариф не найден' },
+          },
+        },
         put: {
           summary: 'Обновить тарифный план подписки (Доступно только Admin)',
           tags: ['Purchases & Subscriptions (Оплаты и Подписки)'],
@@ -948,6 +978,42 @@ const options: swaggerJSDoc.Options = {
           },
         },
       },
+      '/api/purchases/history/{id}': {
+        get: {
+          summary: 'Получить детальную информацию о конкретном платеже по ID',
+          tags: ['Purchases & Subscriptions (Оплаты и Подписки)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' }, description: 'ID транзакции' },
+          ],
+          responses: {
+            200: {
+              description: 'Информация о платеже',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'integer' },
+                      userId: { type: 'integer' },
+                      amount: { type: 'number' },
+                      status: { type: 'string' },
+                      createdAt: { type: 'string' },
+                      movieId: { type: 'integer', nullable: true },
+                      movieTitle: { type: 'string', nullable: true },
+                      subscriptionTypeId: { type: 'integer', nullable: true },
+                      subscriptionName: { type: 'string', nullable: true },
+                      userEmail: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+            403: { description: 'Доступ запрещен' },
+            404: { description: 'Транзакция не найдена' },
+          },
+        },
+      },
       '/api/purchases/subscriptions': {
         get: {
           summary: 'Список оформленных подписок пользователей с пагинацией и фильтром активности',
@@ -991,6 +1057,106 @@ const options: swaggerJSDoc.Options = {
                 },
               },
             },
+          },
+        },
+      },
+      '/api/purchases/subscriptions/{id}': {
+        get: {
+          summary: 'Получить детальную информацию о конкретной подписке по ID',
+          tags: ['Purchases & Subscriptions (Оплаты и Подписки)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' }, description: 'ID подписки' },
+          ],
+          responses: {
+            200: {
+              description: 'Информация о подписке',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'integer' },
+                      userId: { type: 'integer' },
+                      subscriptionTypeId: { type: 'integer' },
+                      subscriptionName: { type: 'string' },
+                      expiresAt: { type: 'string' },
+                      createdAt: { type: 'string' },
+                      userEmail: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+            403: { description: 'Доступ запрещен' },
+            404: { description: 'Подписка не найдена' },
+          },
+        },
+      },
+      '/api/upload': {
+        post: {
+          summary: 'Загрузка медиа файлов (изображения, видео напр. mp4)',
+          tags: ['Upload (Загрузка медиа)'],
+          requestBody: {
+            required: true,
+            content: {
+              'multipart/form-data': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    file: {
+                      type: 'string',
+                      format: 'binary',
+                      description: 'Файл для загрузки (изображение или видео)',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Файл успешно загружен',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      url: {
+                        type: 'string',
+                        example: '/api/upload/public/1706822812345-abc1234.mp4',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Файл не был загружен' },
+            500: { description: 'Ошибка сервера при загрузке' },
+          },
+        },
+      },
+      '/api/upload/public/{filename}': {
+        get: {
+          summary: 'Получение загруженного медиа файла',
+          tags: ['Upload (Загрузка медиа)'],
+          parameters: [
+            { name: 'filename', in: 'path', required: true, schema: { type: 'string' }, description: 'Имя загруженного файла' },
+          ],
+          responses: {
+            200: {
+              description: 'Файл успешно получен, возвращает бинарные данные (stream)',
+              content: {
+                'application/octet-stream': {
+                  schema: {
+                    type: 'string',
+                    format: 'binary',
+                  },
+                },
+              },
+            },
+            404: { description: 'Файл не найден' },
+            500: { description: 'Ошибка сервера при получении' },
           },
         },
       },
