@@ -77,6 +77,39 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response): Prom
 });
 
 /**
+ * GET /api/categories/:id
+ * Получить категорию по ID.
+ */
+router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): Promise<any> => {
+  try {
+    const categoryId = parseInt(req.params.id);
+    if (isNaN(categoryId)) {
+      return res.status(400).json({ error: 'Неверный ID категории' });
+    }
+
+    const category = await db.select().from(categories).where(eq(categories.id, categoryId)).get();
+    if (!category) {
+      return res.status(404).json({ error: 'Категория не найдена' });
+    }
+
+    let parsedLocales = [];
+    try {
+      parsedLocales = JSON.parse(category.locales || '[]');
+    } catch (e) {
+      parsedLocales = [];
+    }
+
+    return res.json({
+      ...category,
+      locales: parsedLocales,
+    });
+  } catch (error) {
+    console.error('Ошибка при получении категории по ID:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
  * POST /api/categories
  * Создать новую категорию (Доступно только Admin).
  */

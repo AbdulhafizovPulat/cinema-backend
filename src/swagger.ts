@@ -465,6 +465,26 @@ const options: swaggerJSDoc.Options = {
         },
       },
       '/api/categories/{id}': {
+        get: {
+          summary: 'Получить информацию о категории по ID',
+          tags: ['Categories (Категории)'],
+          security: [{ BearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'integer' } },
+          ],
+          responses: {
+            200: {
+              description: 'Данные категории',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Category' },
+                },
+              },
+            },
+            400: { description: 'Неверный ID категории' },
+            404: { description: 'Категория не найдена' },
+          },
+        },
         put: {
           summary: 'Обновить категорию (Доступно только Admin)',
           tags: ['Categories (Категории)'],
