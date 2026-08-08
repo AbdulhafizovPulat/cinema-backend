@@ -191,9 +191,9 @@ const options: swaggerJSDoc.Options = {
           },
         },
       },
-      '/api/auth/login': {
+  '/api/auth/login': {
         post: {
-          summary: 'Авторизация пользователя и получение JWT-токена',
+          summary: 'Авторизация пользователя и получение JWT-токенов',
           tags: ['Auth (Авторизация)'],
           requestBody: {
             required: true,
@@ -211,8 +211,85 @@ const options: swaggerJSDoc.Options = {
             },
           },
           responses: {
-            200: { description: 'Авторизация успешна, токен возвращен' },
+            200: {
+              description: 'Авторизация успешна, токены возвращены',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Авторизация успешна' },
+                      token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                      refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                      user: { $ref: '#/components/schemas/User' }
+                    }
+                  }
+                }
+              }
+            },
             400: { description: 'Неверный логин или пароль' },
+          },
+        },
+      },
+      '/api/auth/refresh': {
+        post: {
+          summary: 'Обновление access токена по refresh токену',
+          tags: ['Auth (Авторизация)'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['refreshToken'],
+                  properties: {
+                    refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Токены успешно обновлены',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                      refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Refresh token обязателен' },
+            403: { description: 'Неверный, просроченный или несовпадающий refresh token' },
+            404: { description: 'Пользователь не найден' },
+          },
+        },
+      },
+      '/api/auth/logout': {
+        post: {
+          summary: 'Выход из системы (аннулирование refresh токена)',
+          tags: ['Auth (Авторизация)'],
+          security: [{ BearerAuth: [] }],
+          responses: {
+            200: {
+              description: 'Успешный выход из системы',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Вы успешно вышли из системы' },
+                    },
+                  },
+                },
+              },
+            },
+            401: { description: 'Пользователь не авторизован' },
           },
         },
       },

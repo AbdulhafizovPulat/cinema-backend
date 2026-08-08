@@ -6,9 +6,11 @@ import { db } from '../../db/index.js';
 import { users } from '../../db/schema.js';
 import { TelegramLoggerService } from '../logger/telegram-logger.service.js';
 import { authenticateToken, requireRole, AuthRequest } from './auth.middleware.js';
+import { LoginLimiterService } from './login-limiter.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me-in-production';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'super-refresh-secret-key-change-me-in-production';
 
 /**
  * Регистрация нового пользователя.
@@ -98,38 +100,86 @@ router.post('/register', async (req, res): Promise<any> => {
  */
 router.post('/login', async (req, res): Promise<any> => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ error: 'Email и пароль обязательны' });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Проверяем блокировку от перебора паролей (Brute-Force Limit)
+    const { locked, remainingSeconds } = LoginLimiterService.isLockedOut(cleanEmail);
+    if (locked) {
+      const remainingMinutes = Math.ceil(remainingSeconds / 60);
+      await TelegramLoggerService.log(`⚠️ [AUTH] Блокировка входа для ${cleanEmail}: Превышен лимит неудачных попыток.`);
+      return res.status(429).json({
+        error: 'Слишком много попыток входа',
+        message: `Превышено количество попыток входа (максимум 5). Доступ временно заблокирован на ${remainingMinutes} мин.`,
+        remainingSeconds
+      });
+    }
+
     // Ищем пользователя в БД
-    const user = await db.select().from(users).where(eq(users.email, email)).get();
+    const user = await db.select().from(users).where(eq(users.email, cleanEmail)).get();
     if (!user) {
-      await TelegramLoggerService.log(`⚠️ [AUTH] Неудачная попытка входа: ${email} (Причина: неверный пароль)`);
+      const { attempts, locked: justLocked, remainingSeconds: remSec } = LoginLimiterService.recordFailedAttempt(cleanEmail);
+      if (justLocked) {
+        await TelegramLoggerService.log(`🚨 [AUTH] Достигнут лимит попыток для: ${cleanEmail}. Аккаунт заблокирован на 15 минут.`);
+        return res.status(429).json({
+          error: 'Слишком много попыток входа',
+          message: 'Достигнут лимит неудачных попыток входа (5/5). Аккаунт заблокирован на 15 минут.',
+          remainingSeconds: remSec
+        });
+      }
+      await TelegramLoggerService.log(`⚠️ [AUTH] Неудачная попытка входа: ${cleanEmail} (Попытка ${attempts} из 5)`);
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
 
     // Сверяем хэши паролей
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      await TelegramLoggerService.log(`⚠️ [AUTH] Неудачная попытка входа: ${email} (Причина: неверный пароль)`);
+      const { attempts, locked: justLocked, remainingSeconds: remSec } = LoginLimiterService.recordFailedAttempt(cleanEmail);
+      if (justLocked) {
+        await TelegramLoggerService.log(`🚨 [AUTH] Достигнут лимит попыток для: ${cleanEmail}. Аккаунт заблокирован на 15 минут.`);
+        return res.status(429).json({
+          error: 'Слишком много попыток входа',
+          message: 'Достигнут лимит неудачных попыток входа (5/5). Аккаунт заблокирован на 15 минут.',
+          remainingSeconds: remSec
+        });
+      }
+      await TelegramLoggerService.log(`⚠️ [AUTH] Неудачная попытка входа: ${cleanEmail} (Попытка ${attempts} из 5)`);
       return res.status(400).json({ error: 'Неверный email или пароль' });
     }
+
+    // Успешный вход -> Сбрасываем счетчик ошибочных попыток
+    LoginLimiterService.resetAttempts(cleanEmail);
 
     // Генерируем JWT токен, вшивая в него id, email и роль пользователя
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '24h' } // Срок действия токена
+      { expiresIn: '15m' } // Срок действия access токена сокращен до 15 минут
     );
+
+    // Генерируем Refresh токен
+    const refreshToken = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' } // Срок действия refresh токена - 7 дней
+    );
+
+    // Сохраняем refresh token в базе данных
+    await db.update(users)
+      .set({ refreshToken })
+      .where(eq(users.id, user.id));
 
     await TelegramLoggerService.log(`🔑 [AUTH] Успешный вход пользователя: ${user.email} (Роль: ${user.role})`);
 
     return res.json({
       message: 'Авторизация успешна',
       token,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -138,6 +188,25 @@ router.post('/login', async (req, res): Promise<any> => {
     });
   } catch (error) {
     console.error('Ошибка входа:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-attempts
+ * Сброс счетчика неудачных попыток входа для конкретного email или всех аккаунтов.
+ */
+router.post('/reset-attempts', async (req, res): Promise<any> => {
+  try {
+    const { email } = req.body || {};
+    LoginLimiterService.resetAttempts(email);
+    const target = email ? String(email).trim().toLowerCase() : 'всех аккаунтов';
+    await TelegramLoggerService.log(`🔄 [AUTH] Сброшен лимит попыток входа для: ${target}`);
+    return res.json({
+      message: `Лимит попыток входа успешно сброшен для ${target}`
+    });
+  } catch (error) {
+    console.error('Ошибка при сбросе лимита попыток:', error);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });
@@ -240,6 +309,85 @@ router.get('/verify-admin', authenticateToken, requireRole('admin'), async (req:
     message: 'Доступ разрешен',
     user: req.user,
   });
+});
+
+/**
+ * Обновление access токена по refresh токену.
+ */
+router.post('/refresh', async (req, res): Promise<any> => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token обязателен' });
+    }
+
+    // Проверяем валидность refresh токена
+    let decoded: any;
+    try {
+      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    } catch (err) {
+      return res.status(403).json({ error: 'Неверный или просроченный refresh token' });
+    }
+
+    if (!decoded || !decoded.id) {
+      return res.status(403).json({ error: 'Недействительный формат refresh токена' });
+    }
+
+    // Ищем пользователя в БД
+    const user = await db.select().from(users).where(eq(users.id, decoded.id)).get();
+    if (!user) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    // Сверяем токен с тем, что в БД
+    if (user.refreshToken !== refreshToken) {
+      return res.status(403).json({ error: 'Refresh token не совпадает или аннулирован' });
+    }
+
+    // Генерируем новую пару токенов
+    const newAccessToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Обновляем refresh token в БД для безопасности (ротация)
+    await db.update(users)
+      .set({ refreshToken: newRefreshToken })
+      .where(eq(users.id, user.id));
+
+    return res.json({
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
+  } catch (error) {
+    console.error('Ошибка обновления токена:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * Выход из системы с аннулированием refresh токена.
+ */
+router.post('/logout', authenticateToken, async (req: AuthRequest, res): Promise<any> => {
+  try {
+    if (req.user) {
+      await db.update(users)
+        .set({ refreshToken: null })
+        .where(eq(users.id, req.user.id));
+    }
+    return res.json({ message: 'Вы успешно вышли из системы' });
+  } catch (error) {
+    console.error('Ошибка выхода из системы:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
 export default router;

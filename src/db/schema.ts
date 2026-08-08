@@ -14,6 +14,7 @@ export const users = sqliteTable('users', {
   lastName: text('last_name').default('').notNull(), // Фамилия
   phoneNumber: text('phone_number').default('').notNull(), // Номер телефона
   cardNumber: text('card_number'), // Номер карты (опционально)
+  refreshToken: text('refresh_token'), // Токен обновления сессии
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
