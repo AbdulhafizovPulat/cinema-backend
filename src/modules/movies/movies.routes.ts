@@ -13,18 +13,7 @@ async function checkStreamAccess(userId: number, role: string, movie: any): Prom
   if (role === 'admin') return true;
   if (!movie.isPremium) return true;
 
-  // Проверяем прямую покупку фильма
-  const directPurchase = await db.select()
-    .from(purchases)
-    .where(
-      and(
-        eq(purchases.userId, userId),
-        eq(purchases.movieId, movie.id),
-        eq(purchases.status, 'completed')
-      )
-    )
-    .get();
-  if (directPurchase) return true;
+
 
   // Проверяем активную подписку
   const now = new Date().toISOString();
@@ -226,11 +215,15 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): P
       rating: ratings.rating,
       comment: ratings.comment,
       createdAt: ratings.createdAt,
+      userId: ratings.userId,
       userEmail: users.email,
+      userFirstName: users.firstName,
+      userLastName: users.lastName,
     })
     .from(ratings)
     .leftJoin(users, eq(ratings.userId, users.id))
     .where(eq(ratings.movieId, movieId))
+    .orderBy(desc(ratings.createdAt))
     .all();
 
     // Проверяем, находится ли фильм в избранном у пользователя
@@ -285,7 +278,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response): P
 
 /**
  * POST /api/movies/:id/rate
- * Возможность оценить фильм и оставить комментарий/отзыв (от 1 до 10).
+ * Возможность оценить фильм и оставить комментарий/отзыв (от 1 до 5).
  */
 router.post('/:id/rate', authenticateToken, async (req: AuthRequest, res: Response): Promise<any> => {
   try {
@@ -297,8 +290,8 @@ router.post('/:id/rate', authenticateToken, async (req: AuthRequest, res: Respon
     const { rating, comment } = req.body;
     const ratingValue = parseInt(rating);
 
-    if (isNaN(ratingValue) || ratingValue < 1 || ratingValue > 10) {
-      return res.status(400).json({ error: 'Оценка должна быть целым числом в диапазоне от 1 до 10' });
+    if (isNaN(ratingValue) || ratingValue < 1 || ratingValue > 5) {
+      return res.status(400).json({ error: 'Оценка должна быть целым числом в диапазоне от 1 до 5' });
     }
 
     // Проверяем существование фильма

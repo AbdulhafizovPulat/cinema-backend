@@ -179,57 +179,6 @@ router.delete('/subscription-types/:id', authenticateToken, requireRole('admin')
   }
 });
 
-/**
- * POST /api/purchases/buy-movie
- * Покупка конкретного фильма навсегда (Симуляция оплаты).
- */
-router.post('/buy-movie', authenticateToken, async (req: AuthRequest, res: Response): Promise<any> => {
-  try {
-    const { movieId } = req.body;
-    const user = req.user!;
-
-    if (!movieId) {
-      return res.status(400).json({ error: 'Необходимо указать movieId' });
-    }
-
-    const movie = await db.select().from(movies).where(eq(movies.id, movieId)).get();
-    if (!movie) {
-      return res.status(404).json({ error: 'Фильм не найден' });
-    }
-
-    const existing = await db.select()
-      .from(purchases)
-      .where(
-        and(
-          eq(purchases.userId, user.id),
-          eq(purchases.movieId, movieId),
-          eq(purchases.status, 'completed')
-        )
-      )
-      .get();
-
-    if (existing) {
-      return res.status(400).json({ error: 'Этот фильм уже куплен вами' });
-    }
-
-    const amount = 199.0; // Симуляция цены
-
-    const result = await db.insert(purchases).values({
-      userId: user.id,
-      movieId: movieId,
-      amount: amount,
-      status: 'completed',
-    }).returning();
-
-    return res.status(201).json({
-      message: 'Фильм успешно приобретен',
-      purchase: result[0],
-    });
-  } catch (error) {
-    console.error('Ошибка при покупке фильма:', error);
-    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-  }
-});
 
 /**
  * POST /api/purchases/subscribe

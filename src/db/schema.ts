@@ -43,7 +43,7 @@ export const movies = sqliteTable('movies', {
   title: text('title').notNull(),
   description: text('description').notNull(),
   posterUrl: text('poster_url'), // Ссылка на постер / обложку фильма
-  videoUrl: text('video_url').notNull(), // Ссылка на стриминг видео-файла
+  videoUrl: text('video_url').notNull(), // Ссылка на стриминг видео-файла (поддерживает HLS .m3u8)
   isPremium: integer('is_premium', { mode: 'boolean' }).default(false).notNull(), // Требуется ли подписка/покупка
   author: text('author').default('Неизвестный автор').notNull(), // Автор / Режиссер
   tags: text('tags').default('[]').notNull(), // Теги / Жанры (JSON строка)
