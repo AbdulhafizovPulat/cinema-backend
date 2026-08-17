@@ -14,6 +14,7 @@ import favoritesRoutes from './modules/favorites/favorites.routes.js';
 import collectionsRoutes from './modules/collections/collections.routes.js';
 import { TelegramLoggerService } from './modules/logger/telegram-logger.service.js';
 import { rateLimiter } from './middleware/rate-limiter.js';
+import { TelegramBotService } from './modules/auth/telegram-bot.service.js';
 
 // Импорт конфигурации Swagger
 import { swaggerSpec } from './swagger.js';
@@ -229,6 +230,10 @@ try {
   server.listen(PORT, () => {
     if (!isCF) {
       console.log(`Сервер запущен и слушает порт ${PORT}`);
+      // Инициализируем и запускаем Telegram Auth бот
+      TelegramBotService.init().catch((err) => {
+        console.error('Ошибка инициализации Telegram Auth бота:', err);
+      });
     }
   });
 } catch (error) {

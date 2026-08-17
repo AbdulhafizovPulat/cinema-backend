@@ -7,6 +7,7 @@ import { users } from '../../db/schema.js';
 import { TelegramLoggerService } from '../logger/telegram-logger.service.js';
 import { authenticateToken, requireRole, AuthRequest } from './auth.middleware.js';
 import { LoginLimiterService } from './login-limiter.js';
+import { TelegramBotService } from './telegram-bot.service.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-me-in-production';
@@ -386,6 +387,42 @@ router.post('/logout', authenticateToken, async (req: AuthRequest, res): Promise
     return res.json({ message: 'Вы успешно вышли из системы' });
   } catch (error) {
     console.error('Ошибка выхода из системы:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * Инициализация авторизации через Telegram.
+ * Создает унікальный токен сессии и ссылку на Telegram бота.
+ */
+router.post('/telegram/init', async (req, res): Promise<any> => {
+  try {
+    const sessionData = TelegramBotService.createAuthSession();
+    return res.json({
+      message: 'Сессия авторизации Telegram создана',
+      ...sessionData
+    });
+  } catch (error) {
+    console.error('Ошибка инициализации Telegram auth:', error);
+    return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
+});
+
+/**
+ * Проверка статуса авторизации через Telegram.
+ * Если пользователь подтвердил номер в боте, возвращает JWT токены и профиль.
+ */
+router.get('/telegram/check/:sessionToken', async (req, res): Promise<any> => {
+  try {
+    const { sessionToken } = req.params;
+    if (!sessionToken) {
+      return res.status(400).json({ error: 'Токен сессии обязателен' });
+    }
+
+    const result = await TelegramBotService.checkAndProcessSession(sessionToken);
+    return res.json(result);
+  } catch (error) {
+    console.error('Ошибка проверки Telegram auth:', error);
     return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
   }
 });

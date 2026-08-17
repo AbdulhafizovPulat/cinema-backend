@@ -191,7 +191,64 @@ const options: swaggerJSDoc.Options = {
           },
         },
       },
-  '/api/auth/login': {
+      '/api/auth/telegram/init': {
+        post: {
+          summary: 'Инициализация авторизации через Telegram бота (без SMS)',
+          tags: ['Auth (Авторизация)'],
+          responses: {
+            200: {
+              description: 'Сессия создана. Возвращает ссылку на бота и токен сессии.',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      message: { type: 'string', example: 'Сессия авторизации Telegram создана' },
+                      sessionToken: { type: 'string', example: 'a1b2c3d4-e5f6-7890-1234-56789abcdef0' },
+                      botUsername: { type: 'string', example: 'my_cinema_auth_bot' },
+                      telegramUrl: { type: 'string', example: 'https://t.me/my_cinema_auth_bot?start=a1b2c3d4-e5f6-7890-1234-56789abcdef0' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/auth/telegram/check/{sessionToken}': {
+        get: {
+          summary: 'Проверка статуса авторизации через Telegram бота',
+          tags: ['Auth (Авторизация)'],
+          parameters: [
+            {
+              name: 'sessionToken',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: 'Токен сессии, полученный из /api/auth/telegram/init'
+            }
+          ],
+          responses: {
+            200: {
+              description: 'Результат проверки сессии (pending или verified с JWT токенами)',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      status: { type: 'string', enum: ['pending', 'verified', 'expired'], example: 'verified' },
+                      token: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                      refreshToken: { type: 'string', example: 'eyJhbGciOiJIUzI1Ni...' },
+                      user: { $ref: '#/components/schemas/User' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/api/auth/login': {
         post: {
           summary: 'Авторизация пользователя и получение JWT-токенов',
           tags: ['Auth (Авторизация)'],
